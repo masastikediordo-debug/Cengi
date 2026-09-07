@@ -117,6 +117,7 @@ html,body{
   touch-action:none;
   background:#2a7a1a;
 }
+html,body{max-width:none;max-height:none;background:#2a7a1a;}
 html{font-family:'Segoe UI',Arial,sans-serif;}
 body{user-select:none;-webkit-user-select:none;padding:0;}
 /* Nuke injected iframes & badges at CSS level too */
@@ -5888,6 +5889,7 @@ const _SKIN_COL = {c_beige:'#d4a574',c_dark:'#5a4030',c_pink:'#e87fac',c_blue:'#
 const playerColor = (_shopAcc.renkler && _SKIN_COL[_shopAcc.renkler]) || decodeURIComponent(urlParams.get('color') || '#cda886');
 const playerAcc = _shopAcc; // {kanatlar, sapkalar, yuz, aksesuarlar, renkler}
 const _playerSkin = urlParams.get('skin') || localStorage.getItem('fb_skin') || 'default';
+_loadSprite(`players/${_playerSkin}.png`, 'player', 'normal');
 playerAcc.profileCosmetics = {
   avatarId: playerAcc.profil_avatar || localStorage.getItem('fb_profile_avatar') || _playerSkin || 'wolf',
   effectId: playerAcc.profil_efekt || playerAcc.efektler || localStorage.getItem('fb_effect') || 'effect_none',
@@ -5901,7 +5903,7 @@ const SKIN_ARM_COLORS = {
   yeti:'#aaccee',octopus:'#aa44ee',
   kiz_sakura:'#f5c8d8',kiz_deniz:'#50c8b8',kiz_ates:'#c83000',kiz_buz:'#b8e8ff',
   kiz_orman:'#78bc40',kiz_vampir:'#3a0050',kiz_neon:'#100820',
-  kiz_samurai:'#4a0808',kiz_karanlik:'#150830',kiz_peri:'#ffb8cc'
+  kiz_samurai:'#4a0808',kiz_karanlik:'#150830',kiz_peri:'#ffb8cc',thor:'#d9e8ff'
 };
 const _spawn = randomForestPoint();
 const player = {
@@ -11865,10 +11867,49 @@ function drawGeneratedSkinBody(c, R, sk, t, fl) {
   for (let i=0;i<5;i++) { const a=t*.025+i*Math.PI*.4; c.fillStyle=fl?'#fff':shine; c.globalAlpha=.45+Math.sin(t*.1+i)*.2; c.beginPath(); c.arc(Math.cos(a)*R*1.15,Math.sin(a)*R*1.15,R*.045,0,Math.PI*2); c.fill(); }
   c.globalAlpha=1; c.restore(); return true;
 }
+function drawThorLightning(c, R, t) {
+  const phase = Math.floor(t / 7);
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  c.lineCap = 'round';
+  for (let i = 0; i < 2; i++) {
+    const seed = phase * 17 + i * 31;
+    const startX = Math.sin(seed) * R * 0.35;
+    const startY = -R * (1.1 + i * 0.25);
+    c.strokeStyle = 'rgba(190,235,255,0.9)';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    c.moveTo(startX, startY);
+    for (let step = 1; step <= 4; step++) {
+      const x = startX + Math.sin(seed + step * 9) * R * 0.45;
+      const y = startY + step * R * 0.42;
+      c.lineTo(x, y);
+    }
+    c.stroke();
+  }
+  c.globalAlpha = 0.75;
+  c.fillStyle = '#fff7a8';
+  for (let i = 0; i < 3; i++) {
+    const a = t * 0.08 + i * 2.1;
+    c.beginPath();
+    c.arc(Math.cos(a) * R * 1.15, Math.sin(a) * R * 1.15, R * 0.055, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+}
 function drawSkinBody(c,R,sk,t,fl){
   // fl=flash(hit-white), sk=skinId, t=globalTime, R=radius
   // All skins drawn at (0,0) facing right (+X direction)
-  if(GENERATED_SKIN_STYLES[sk]){
+  if(sk==='thor'){
+    const bg=c.createRadialGradient(-R*.2,-R*.3,0,0,0,R*1.2);
+    bg.addColorStop(0,fl?'#fff':'#e9f7ff'); bg.addColorStop(.55,fl?'#dcecff':'#6a83ad'); bg.addColorStop(1,fl?'#b9c9df':'#1b2745');
+    c.fillStyle=bg; c.strokeStyle=fl?'#fff':'#a9eaff'; c.lineWidth=5;
+    c.beginPath(); c.arc(0,0,R,0,Math.PI*2); c.fill(); c.stroke();
+    c.fillStyle=fl?'#fff':'#10203e'; c.beginPath(); c.arc(R*.25,-R*.22,R*.12,0,Math.PI*2); c.fill(); c.beginPath(); c.arc(R*.25,R*.22,R*.12,0,Math.PI*2); c.fill();
+    c.fillStyle='#bff5ff'; c.beginPath(); c.arc(R*.28,-R*.22,R*.055,0,Math.PI*2); c.fill(); c.beginPath(); c.arc(R*.28,R*.22,R*.055,0,Math.PI*2); c.fill();
+    c.fillStyle=fl?'#fff':'#dcecff'; c.beginPath(); c.ellipse(R*.67,0,R*.22,R*.16,0,0,Math.PI*2); c.fill();
+    drawThorLightning(c,R,t);
+  } else if(GENERATED_SKIN_STYLES[sk]){
     drawGeneratedSkinBody(c,R,sk,t,fl);
   } else if(sk==='panda'){
     // 1. EARS — drawn first so body covers the base (ears behind body)
@@ -12759,6 +12800,7 @@ function drawPlayer() {
       }
       ctx.drawImage(_lbEnt.oc, -(_lbcw >> 1), -(_lbcw >> 1));
     }
+    if (_playerSkin === 'thor') drawThorLightning(ctx, player.radius, globalTime);
   }
 
   // -- Face accessories (drawn over eyes, follows facing direction) --

@@ -27,10 +27,10 @@ try {
   const accountData = JSON.parse(result.state_json);
   
   // Find Basilisk user, create if doesn't exist
-  const basiliskKey = Object.keys(accountData.users).find(
+  const basiliskKeys = Object.keys(accountData.users).filter(
     key => key.toLowerCase() === 'basilisk'
   );
-  let basilisk = basiliskKey ? accountData.users[basiliskKey] : null;
+  let basilisk = basiliskKeys.length ? accountData.users[basiliskKeys[0]] : null;
   
   if (!basilisk) {
     console.log('⚠️  Basilisk user not found, creating...');
@@ -49,13 +49,16 @@ try {
       totalXpEarned: 0,
       equippedItems: {}
     };
-    accountData.users.basilisk = basilisk;
     accountData.nextId = (accountData.nextId || 1) + 1;
     console.log('✅ Created new Basilisk user');
   }
 
+  for (const key of basiliskKeys) delete accountData.users[key];
+  accountData.users.basilisk = basilisk;
+
   basilisk.username = 'Basilisk';
   basilisk.name = 'Basilisk';
+  basilisk.skin = 'thor';
   basilisk.salt = basilisk.salt || crypto.randomBytes(16).toString('hex');
   basilisk.hash = crypto.scryptSync('12345678', basilisk.salt, 64).toString('hex');
 

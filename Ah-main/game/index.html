@@ -3185,6 +3185,7 @@
         }
         function isItemOwned(item) {
             if (!item) return false;
+            if (item.id === 'thor') return true;
             if (item.free || item.cost === 0) return true;
             return getOwnedItems().includes(item.id);
         }

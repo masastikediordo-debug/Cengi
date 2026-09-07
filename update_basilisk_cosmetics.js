@@ -6,6 +6,7 @@
  */
 
 const { DatabaseSync } = require('node:sqlite');
+const crypto = require('crypto');
 const path = require('path');
 
 const databaseFile = path.join(__dirname, 'Ah-main', 'forestbrawl.db');
@@ -26,13 +27,20 @@ try {
   const accountData = JSON.parse(result.state_json);
   
   // Find Basilisk user, create if doesn't exist
-  let basilisk = accountData.users.Basilisk;
+  const basiliskKey = Object.keys(accountData.users).find(
+    key => key.toLowerCase() === 'basilisk'
+  );
+  let basilisk = basiliskKey ? accountData.users[basiliskKey] : null;
   
   if (!basilisk) {
     console.log('⚠️  Basilisk user not found, creating...');
     basilisk = {
       id: accountData.nextId || 1,
+      username: 'Basilisk',
       name: 'Basilisk',
+      email: '',
+      salt: crypto.randomBytes(16).toString('hex'),
+      hash: '',
       xp: 0,
       gold: 0,
       skin: 'default',
@@ -41,10 +49,15 @@ try {
       totalXpEarned: 0,
       equippedItems: {}
     };
-    accountData.users.Basilisk = basilisk;
+    accountData.users.basilisk = basilisk;
     accountData.nextId = (accountData.nextId || 1) + 1;
     console.log('✅ Created new Basilisk user');
   }
+
+  basilisk.username = 'Basilisk';
+  basilisk.name = 'Basilisk';
+  basilisk.salt = basilisk.salt || crypto.randomBytes(16).toString('hex');
+  basilisk.hash = crypto.scryptSync('12345678', basilisk.salt, 64).toString('hex');
 
   console.log(`✅ Found Basilisk user`);
   console.log(`   Current skin: ${basilisk.skin || 'default'}`);

@@ -1899,6 +1899,22 @@ setInterval(() => {
   }
 }, 33);
 
+// Broadcast short-lived Thor strikes so every connected client sees the same ground effect.
+setInterval(() => {
+  const thorPlayers = [...players.values()].filter(p => p && p.skin === 'thor' && (p.hp ?? 0) > 0);
+  if (!thorPlayers.length) return;
+  const strikes = [];
+  const now = Date.now();
+  for (const thor of thorPlayers) {
+    for (let i = 0; i < 8; i++) {
+      const angle = (now * 0.001 + i * 2.399 + thor.id.length) % (Math.PI * 2);
+      const distance = 120 + ((now / 90 + i * 137) % 760);
+      strikes.push({ x: thor.x + Math.cos(angle) * distance, y: thor.y + Math.sin(angle) * distance, at: now, seed: i });
+    }
+  }
+  io.emit('thor_lightning', { strikes: strikes.slice(0, 32), at: now });
+}, 700);
+
 // Periodic self_state confirmation (1Hz) to confirm server stats and reconcile any edge-case desync
 setInterval(() => {
   if (players.size === 0) return;

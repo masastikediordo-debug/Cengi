@@ -5890,6 +5890,7 @@ const playerColor = (_shopAcc.renkler && _SKIN_COL[_shopAcc.renkler]) || decodeU
 const playerAcc = _shopAcc; // {kanatlar, sapkalar, yuz, aksesuarlar, renkler}
 const _playerSkin = urlParams.get('skin') || localStorage.getItem('fb_skin') || 'default';
 _loadSprite(`players/${_playerSkin}.png`, 'player', 'normal');
+const _thorGroundStrikes = [];
 playerAcc.profileCosmetics = {
   avatarId: playerAcc.profil_avatar || localStorage.getItem('fb_profile_avatar') || _playerSkin || 'wolf',
   effectId: playerAcc.profil_efekt || playerAcc.efektler || localStorage.getItem('fb_effect') || 'effect_none',
@@ -11897,6 +11898,23 @@ function drawThorLightning(c, R, t) {
   }
   c.restore();
 }
+function drawThorGroundStrikes(c, now) {
+  const cutoff = now - 900;
+  for (let i = _thorGroundStrikes.length - 1; i >= 0; i--) {
+    const strike = _thorGroundStrikes[i];
+    if (!strike || strike.at < cutoff) { _thorGroundStrikes.splice(i, 1); continue; }
+    const progress = Math.min(1, (now - strike.at) / 700);
+    const fade = 1 - progress;
+    const size = 38 + (strike.seed % 3) * 10;
+    c.save(); c.translate(strike.x, strike.y); c.globalCompositeOperation = 'lighter';
+    c.globalAlpha = fade * 0.28; c.fillStyle = '#8edcff'; c.beginPath(); c.arc(0, 0, size, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = fade; c.strokeStyle = '#d9f8ff'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(0, -size * 1.5);
+    for (let step = 1; step <= 5; step++) c.lineTo(Math.sin(strike.seed * 9 + step * 7) * size * .55, -size * 1.5 + step * size * .6);
+    c.stroke(); c.strokeStyle = '#fff6a3'; c.lineWidth = 1.2; c.stroke();
+    c.restore();
+  }
+}
 function drawSkinBody(c,R,sk,t,fl){
   // fl=flash(hit-white), sk=skinId, t=globalTime, R=radius
   // All skins drawn at (0,0) facing right (+X direction)
@@ -14407,6 +14425,7 @@ function update(timestamp = 0) {
 
   // ── GROUND DETAILS: Direct world-space draw (Instant, perfectly synced with camera) ──
   drawGroundDetailsDirect(ctx);
+  drawThorGroundStrikes(ctx, Date.now());
 
   // NOTE: cave hook is called AFTER background so cave portals are not covered
   // BUG FIX: removed globalTime % 2 === 0 throttle — it caused caves AND bosses (drawn via the
@@ -15403,6 +15422,13 @@ function initMultiplayer() {
       };
       _reconnectTimer = setTimeout(_doReconnect, _reconnectDelay);
     }
+  });
+  _socket.on('thor_lightning', ({ strikes } = {}) => {
+    if (!Array.isArray(strikes)) return;
+    for (const strike of strikes) {
+      if (Number.isFinite(strike?.x) && Number.isFinite(strike?.y)) _thorGroundStrikes.push({ ...strike, at: Number(strike.at) || Date.now() });
+    }
+    if (_thorGroundStrikes.length > 64) _thorGroundStrikes.splice(0, _thorGroundStrikes.length - 64);
   });
 
   _socket.on('welcome', ({ id, players: others, buildings: remoteBuildings, worldSeed, resHp, mobs, isHost: serverIsHost, bountyId: welcomeBountyId, airdrops: welcomeAirdrops }) => {

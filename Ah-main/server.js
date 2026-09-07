@@ -1092,7 +1092,13 @@ async function handleApi(request, response, requestPath) {
         if ((user.coins || 0) < chest.cost) {
           sendJson(response, 400, { error: 'Yetersiz altın.' });
         } else {
-          const rewardId = chest.rewards[Math.floor(Math.random() * chest.rewards.length)];
+          const ownedItems = new Set(Array.isArray(user.ownedItems) ? user.ownedItems.map(String) : []);
+          const availableRewards = chest.rewards.filter(rewardId => !ownedItems.has(rewardId));
+          if (!availableRewards.length) {
+            sendJson(response, 409, { error: 'Bu sandıktaki tüm skinlere zaten sahipsin.' });
+            return true;
+          }
+          const rewardId = availableRewards[Math.floor(Math.random() * availableRewards.length)];
           user.coins = (user.coins || 0) - chest.cost;
           user.gold = user.coins;
           user.ownedItems = [...new Set([...(user.ownedItems || []), rewardId])];

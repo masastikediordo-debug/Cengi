@@ -5890,7 +5890,7 @@ const playerColor = (_shopAcc.renkler && _SKIN_COL[_shopAcc.renkler]) || decodeU
 const playerAcc = _shopAcc; // {kanatlar, sapkalar, yuz, aksesuarlar, renkler}
 const _playerSkin = urlParams.get('skin') || localStorage.getItem('fb_skin') || 'default';
 _loadSprite(`players/${_playerSkin}.png`, 'player', 'normal');
-const _thorGroundStrikes = [];
+const _thorLightnings = [], _thorSparks = [], _thorScorchMarks = [];
 playerAcc.profileCosmetics = {
   avatarId: playerAcc.profil_avatar || localStorage.getItem('fb_profile_avatar') || _playerSkin || 'wolf',
   effectId: playerAcc.profil_efekt || playerAcc.efektler || localStorage.getItem('fb_effect') || 'effect_none',
@@ -11898,22 +11898,49 @@ function drawThorLightning(c, R, t) {
   }
   c.restore();
 }
-function drawThorGroundStrikes(c, now) {
-  const cutoff = now - 900;
-  for (let i = _thorGroundStrikes.length - 1; i >= 0; i--) {
-    const strike = _thorGroundStrikes[i];
-    if (!strike || strike.at < cutoff) { _thorGroundStrikes.splice(i, 1); continue; }
-    const progress = Math.min(1, (now - strike.at) / 700);
-    const fade = 1 - progress;
-    const size = 38 + (strike.seed % 3) * 10;
-    c.save(); c.translate(strike.x, strike.y); c.globalCompositeOperation = 'lighter';
-    c.globalAlpha = fade * 0.28; c.fillStyle = '#8edcff'; c.beginPath(); c.arc(0, 0, size, 0, Math.PI * 2); c.fill();
-    c.globalAlpha = fade; c.strokeStyle = '#d9f8ff'; c.lineWidth = 3;
-    c.beginPath(); c.moveTo(0, -size * 1.5);
-    for (let step = 1; step <= 5; step++) c.lineTo(Math.sin(strike.seed * 9 + step * 7) * size * .55, -size * 1.5 + step * size * .6);
-    c.stroke(); c.strokeStyle = '#fff6a3'; c.lineWidth = 1.2; c.stroke();
-    c.restore();
+class ThorLightning {
+  constructor(sx, sy, tx, ty, branch = 0) {
+    this.segments = [{ x: sx, y: sy }]; this.branch = branch; this.alpha = 1;
+    const steps = Math.max(5, Math.floor(Math.hypot(tx - sx, ty - sy) / 15));
+    for (let i = 1; i <= steps; i++) {
+      const p = i / steps, variance = i === steps ? 0 : 25;
+      this.segments.push({ x: sx + (tx - sx) * p + (Math.random() - .5) * variance, y: sy + (ty - sy) * p + (Math.random() - .5) * variance });
+    }
+    this.decay = branch ? .03 : .015;
+    if (!branch && _thorLightnings.length < 25) {
+      const split = this.segments[Math.floor(this.segments.length * (.3 + Math.random() * .4))];
+      if (split) _thorLightnings.push(new ThorLightning(split.x, split.y, split.x + (Math.random() - .5) * 100, split.y + (Math.random() - .5) * 100, 1));
+    }
   }
+  update() { this.alpha -= this.decay; return this.alpha > 0; }
+  draw(c) {
+    c.beginPath(); c.moveTo(this.segments[0].x, this.segments[0].y); for (const p of this.segments.slice(1)) c.lineTo(p.x, p.y);
+    c.strokeStyle = `rgba(0,195,255,${this.alpha * .8})`; c.lineWidth = this.branch ? 4 : 8; c.shadowBlur = 20; c.shadowColor = '#00c3ff'; c.stroke();
+    c.beginPath(); c.moveTo(this.segments[0].x, this.segments[0].y); for (const p of this.segments.slice(1)) c.lineTo(p.x, p.y);
+    c.strokeStyle = `rgba(255,255,255,${this.alpha})`; c.lineWidth = this.branch ? 1.5 : 3; c.shadowBlur = 0; c.stroke();
+  }
+}
+class ThorSpark {
+  constructor(x, y) { this.x = x; this.y = y; const a = Math.random() * Math.PI * 2, speed = 2 + Math.random() * 5; this.vx = Math.cos(a) * speed; this.vy = Math.sin(a) * speed; this.life = 1; this.decay = .03 + Math.random() * .05; this.size = 2 + Math.random() * 2; }
+  update() { this.x += this.vx; this.y += this.vy; this.life -= this.decay; return this.life > 0; }
+  draw(c) { c.fillStyle = `rgba(150,220,255,${this.life})`; c.shadowBlur = 10; c.shadowColor = '#00c3ff'; c.beginPath(); c.arc(this.x, this.y, this.size, 0, Math.PI * 2); c.fill(); c.shadowBlur = 0; }
+}
+class ThorScorchMark {
+  constructor(x, y) { this.x = x; this.y = y; this.size = 15 + Math.random() * 15; this.life = 1; }
+  update() { this.life -= .005; return this.life > 0; }
+  draw(c) { c.fillStyle = `rgba(0,0,0,${this.life * .6})`; c.beginPath(); c.arc(this.x, this.y, this.size, 0, Math.PI * 2); c.fill(); }
+}
+function spawnThorLightning(sx, sy, tx, ty) {
+  if (_thorLightnings.length >= 25) return;
+  const angle = Math.atan2(ty - sy, tx - sx);
+  _thorLightnings.push(new ThorLightning(sx + Math.cos(angle) * 35, sy + Math.sin(angle) * 35, tx, ty));
+  if (_thorScorchMarks.length < 15) _thorScorchMarks.push(new ThorScorchMark(tx, ty));
+  for (let i = 0; i < 7 && _thorSparks.length < 200; i++) _thorSparks.push(new ThorSpark(tx, ty));
+}
+function drawThorGroundStrikes(c, now) {
+  for (let i = _thorScorchMarks.length - 1; i >= 0; i--) { if (!_thorScorchMarks[i].update()) _thorScorchMarks.splice(i, 1); else _thorScorchMarks[i].draw(c); }
+  for (let i = _thorLightnings.length - 1; i >= 0; i--) { if (!_thorLightnings[i].update()) _thorLightnings.splice(i, 1); else _thorLightnings[i].draw(c); }
+  for (let i = _thorSparks.length - 1; i >= 0; i--) { if (!_thorSparks[i].update()) _thorSparks.splice(i, 1); else _thorSparks[i].draw(c); }
 }
 function drawSkinBody(c,R,sk,t,fl){
   // fl=flash(hit-white), sk=skinId, t=globalTime, R=radius
@@ -15426,9 +15453,10 @@ function initMultiplayer() {
   _socket.on('thor_lightning', ({ strikes } = {}) => {
     if (!Array.isArray(strikes)) return;
     for (const strike of strikes) {
-      if (Number.isFinite(strike?.x) && Number.isFinite(strike?.y)) _thorGroundStrikes.push({ ...strike, at: Number(strike.at) || Date.now() });
+      if (Number.isFinite(strike?.sx) && Number.isFinite(strike?.sy) && Number.isFinite(strike?.x) && Number.isFinite(strike?.y)) {
+        spawnThorLightning(strike.sx, strike.sy, strike.x, strike.y);
+      }
     }
-    if (_thorGroundStrikes.length > 64) _thorGroundStrikes.splice(0, _thorGroundStrikes.length - 64);
   });
 
   _socket.on('welcome', ({ id, players: others, buildings: remoteBuildings, worldSeed, resHp, mobs, isHost: serverIsHost, bountyId: welcomeBountyId, airdrops: welcomeAirdrops }) => {

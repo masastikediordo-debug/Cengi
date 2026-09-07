@@ -1909,7 +1909,7 @@ setInterval(() => {
     for (let i = 0; i < 8; i++) {
       const angle = (now * 0.001 + i * 2.399 + thor.id.length) % (Math.PI * 2);
       const distance = 120 + ((now / 90 + i * 137) % 760);
-      strikes.push({ x: thor.x + Math.cos(angle) * distance, y: thor.y + Math.sin(angle) * distance, at: now, seed: i });
+      strikes.push({ sx: thor.x, sy: thor.y, x: thor.x + Math.cos(angle) * distance, y: thor.y + Math.sin(angle) * distance, at: now, seed: i });
     }
   }
   io.emit('thor_lightning', { strikes: strikes.slice(0, 32), at: now });
